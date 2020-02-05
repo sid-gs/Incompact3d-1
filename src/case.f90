@@ -107,7 +107,7 @@ CONTAINS
 
     ELSEIF (itype.EQ.itype_mixlayer) THEN
 
-       CALL init_mixlayer (rho1, ux1, uy1, uz1, phi1)
+       CALL init_mixlayer (rho1, ux1, uy1, uz1)
 
     ELSE
 
