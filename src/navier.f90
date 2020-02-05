@@ -39,6 +39,7 @@ module navier
   public :: solve_poisson, divergence, calc_divu_constraint
   public :: pre_correc, cor_vel
   public :: lmn_t_to_rho_trans, momentum_to_velocity, velocity_to_momentum
+  public :: gradp
 
 contains
 
@@ -56,6 +57,7 @@ contains
     USE var, ONLY : dv3
     USE param, ONLY : ntime, nrhotime, npress
     USE param, ONLY : ilmn, ivarcoeff
+
 
     IMPLICIT NONE
 
@@ -358,6 +360,8 @@ contains
     USE var, only: pp1,pgy1,pgz1,di1,pp2,ppi2,pgy2,pgz2,pgzi2,dip2,&
          pgz3,ppi3,dip3,nxmsize,nymsize,nzmsize
 
+    USE forces, only : iforces, ppi1
+
     implicit none
 
     integer :: i,j,k
@@ -394,6 +398,11 @@ contains
          nxmsize,xsize(1),xsize(2),xsize(3),1)
     call interxpv(pz1,pgz1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
          nxmsize,xsize(1),xsize(2),xsize(3),1)
+
+    if (iforces.eq.1) then
+       call interxpv(ppi1,pp1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
+            nxmsize,xsize(1),xsize(2),xsize(3),1)
+    endif
 
     !we are in X pencils:
     if (nclx1.eq.2) then
@@ -1094,8 +1103,7 @@ contains
 
     !! LOCALS
     INTEGER :: nlock, ierr
-    REAL(mytype) :: rhomin
-    REAL(mytype), SAVE :: rho0
+    REAL(mytype) :: rhomin, rho0
 
     IF (poissiter.EQ.0) THEN
        !! Compute rho0
