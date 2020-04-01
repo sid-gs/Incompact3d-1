@@ -1,3 +1,35 @@
+!################################################################################
+!This file is part of Xcompact3d.
+!
+!Xcompact3d
+!Copyright (c) 2012 Eric Lamballais and Sylvain Laizet
+!eric.lamballais@univ-poitiers.fr / sylvain.laizet@gmail.com
+!
+!    Xcompact3d is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation.
+!
+!    Xcompact3d is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with the code.  If not, see <http://www.gnu.org/licenses/>.
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!    We kindly request that you cite Xcompact3d/Incompact3d in your
+!    publications and presentations. The following citations are suggested:
+!
+!    1-Laizet S. & Lamballais E., 2009, High-order compact schemes for
+!    incompressible flows: a simple and efficient method with the quasi-spectral
+!    accuracy, J. Comp. Phys.,  vol 228 (15), pp 5989-6015
+!
+!    2-Laizet S. & Li N., 2011, Incompact3d: a powerful tool to tackle turbulence
+!    problems with up to 0(10^5) computational cores, Int. J. of Numerical
+!    Methods in Fluids, vol 67 (11), pp 1735-1757
+!################################################################################
+
 !=======================================================================
 ! This program computes the drag and lift coefficients alongo a 
 ! cylinder by the control ! volume (CV) technique for 2D (pencil) 
@@ -7,11 +39,12 @@
 ! 08-2018 Nucleo de Estudos em Transicao e Turbulencia (NETT/IPH/UFRGS)
 !
 !=======================================================================
+
 module forces
   USE decomp_2d
   implicit none
 
-  integer :: nvol
+  integer :: nvol,iforces
   real(mytype),save,allocatable,dimension(:,:,:) :: ux01, uy01, ux11, uy11, ppi1
   real(mytype),allocatable,dimension(:) :: xld,xrd,yld,yud
   integer,allocatable,dimension(:) :: icvlf,icvrt,jcvlw,jcvup
@@ -99,8 +132,8 @@ contains
     character(len=30) :: filename, filestart
     integer (kind=MPI_OFFSET_KIND) :: filesize, disp
 
-    write(filename, "('sauve-forces',I7.7)") itime
-    write(filestart,"('sauve-forces',I7.7)") ifirst-1
+    write(filename, "('restart-forces',I7.7)") itime
+    write(filestart,"('restart-forces',I7.7)") ifirst-1
 
     if (itest1==1) then !write
        if (mod(itime, icheckpoint).ne.0) then
@@ -157,7 +190,7 @@ subroutine force(ux1,uy1,ep1)
   use var, only : ux2, uy2, ta2, tb2, tc2, td2, di2
 
   implicit none
-  character(len=30) :: filename
+  character(len=30) :: filename, filename2
   integer :: nzmsize
   integer                                             :: i, iv, j, k, kk, code
   integer                                             :: nvect1,nvect2,nvect3
@@ -456,17 +489,42 @@ subroutine force(ux1,uy1,ep1)
      !Edited by F. Schuch
      xDrag_mean = sum(xDrag(:))/real(nz,mytype)
      yLift_mean = sum(yLift(:))/real(nz,mytype)
-     if ((nrank .eq. 0).and.(itime.gt.0)) then
-        write(filename,"('./out/aerof_avr',I1.1)") iv
-        open(67,file=filename,status='unknown',form='formatted',access='direct',recl=43) !43 = 3*14+1
+
+     if ((itime==ifirst).or.(itime==0)) then
+        if (nrank .eq. 0) then
+        write(filename,"('aerof',I1.1)") iv
+        open(38+(iv-1),file=filename,status='unknown',form='formatted')
+        endif
+     endif
+     if (nrank .eq. 0) then
+        write(38+(iv-1),*) t,xDrag_mean,yLift_mean
+     endif
+     if (itime==ilast) then
+        if (nrank .eq. 0) then
+           close(38+(iv-1))
+           write(filename,"('aerof',I1.1)") iv
+           write(filename2,"('aerof',I1.1,'-',I7.7)") iv, itime
+           call system("mv " //filename //filename2)
+        endif
+     endif
+     
+     
+!    if ((nrank .eq. 0).and.(itime.g)) then
+!        write(filename,"('aerof',I1.1)") iv
+!        open(67,file=filename,status='unknown',form='formatted')
+!     endif
+!     if (nrank .eq. 0) then
+!!        open(67,file=filename,status='unknown',form='formatted',access='direct',recl=43) !43 = 3*14+1!
+!
         !Using the direct access, each value for the coefficients will be written
         !in the line itime-2, eliminating any problems with possible restart
-        write(67,'(3E14.6,A)',rec=itime-2) t,&                     !1
-             xDrag_mean,&                                          !2
-             yLift_mean,&                                          !3
-             char(10) !new line character                          !+1
-        close(67)
-     endif
+!        write(67,'(3E14.6,A)',rec=itime-2) t,&                     !1
+!             xDrag_mean,&                                          !2
+ !            yLift_mean,&                                          !3
+!             char(10) !new line character                          !+1
+ !            endif
+ !            close(67)
+ !    endif
   enddo
 
   do k = 1, xsize(3)

@@ -1,3 +1,35 @@
+!################################################################################
+!This file is part of Xcompact3d.
+!
+!Xcompact3d
+!Copyright (c) 2012 Eric Lamballais and Sylvain Laizet
+!eric.lamballais@univ-poitiers.fr / sylvain.laizet@gmail.com
+!
+!    Xcompact3d is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation.
+!
+!    Xcompact3d is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with the code.  If not, see <http://www.gnu.org/licenses/>.
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!    We kindly request that you cite Xcompact3d/Incompact3d in your
+!    publications and presentations. The following citations are suggested:
+!
+!    1-Laizet S. & Lamballais E., 2009, High-order compact schemes for
+!    incompressible flows: a simple and efficient method with the quasi-spectral
+!    accuracy, J. Comp. Phys.,  vol 228 (15), pp 5989-6015
+!
+!    2-Laizet S. & Li N., 2011, Incompact3d: a powerful tool to tackle turbulence
+!    problems with up to 0(10^5) computational cores, Int. J. of Numerical
+!    Methods in Fluids, vol 67 (11), pp 1735-1757
+!################################################################################
+
 module visu
 
   implicit none
@@ -149,6 +181,62 @@ contains
   end subroutine write_snapshot
 
 endmodule visu
+!############################################################################
+subroutine VISU_PRE (pp3,ta1,tb1,di1,ta2,tb2,di2,ta3,di3,nxmsize,nymsize,nzmsize,uvisu,pre1)
+
+  USE param
+  USE variables
+  USE decomp_2d
+  USE decomp_2d_io
+
+  implicit none
+
+  integer :: nxmsize,nymsize,nzmsize
+
+  real(mytype),dimension(xszV(1),xszV(2),xszV(3)) :: uvisu
+  real(mytype),dimension(ph3%zst(1):ph3%zen(1),ph3%zst(2):ph3%zen(2),nzmsize) :: pp3
+  !Z PENCILS NXM NYM NZM-->NXM NYM NZ
+  real(mytype),dimension(ph3%zst(1):ph3%zen(1),ph3%zst(2):ph3%zen(2),zsize(3)) :: ta3,di3
+  !Y PENCILS NXM NYM NZ -->NXM NY NZ
+  real(mytype),dimension(ph3%yst(1):ph3%yen(1),nymsize,ysize(3)) :: ta2
+  real(mytype),dimension(ph3%yst(1):ph3%yen(1),ysize(2),ysize(3)) :: tb2,di2
+  !X PENCILS NXM NY NZ  -->NX NY NZ
+  real(mytype),dimension(nxmsize,xsize(2),xsize(3)) :: ta1
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: tb1,di1,pre1
+
+  character(len=30) filename
+
+  !WORK Z-PENCILS
+  call interzpv(ta3,pp3,di3,sz,cifip6z,cisip6z,ciwip6z,cifz6,cisz6,ciwz6,&
+       (ph3%zen(1)-ph3%zst(1)+1),(ph3%zen(2)-ph3%zst(2)+1),nzmsize,zsize(3),1)
+  !WORK Y-PENCILS
+  call transpose_z_to_y(ta3,ta2,ph3) !nxm nym nz
+  call interypv(tb2,ta2,di2,sy,cifip6y,cisip6y,ciwip6y,cify6,cisy6,ciwy6,&
+       (ph3%yen(1)-ph3%yst(1)+1),nymsize,ysize(2),ysize(3),1)
+  !WORK X-PENCILS
+  call transpose_y_to_x(tb2,ta1,ph2) !nxm ny nz
+  call interxpv(tb1,ta1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
+       nxmsize,xsize(1),xsize(2),xsize(3),1)
+
+  pre1=tb1
+
+  if (save_pre.eq.1) then
+     uvisu=0._mytype
+     call fine_to_coarseV(1,pre1,uvisu)
+     write(filename,"('./data/pre',I4.4)") itime/ioutput
+     call decomp_2d_write_one(1,uvisu,filename,2)
+  endif
+
+  if (save_prem.eq.1) then
+     tb1=0._mytype
+     call mean_plane_z(pre1,xsize(1),xsize(2),xsize(3),tb1(:,:,1))
+     write(filename,"('./data/prem',I4.4)") itime/ioutput
+     call decomp_2d_write_plane(1,tb1,3,1,filename)
+  endif
+
+  return
+
+end subroutine VISU_PRE
 
 !######################################################################################
 subroutine mean_plane_x (f1,nx,ny,nz,fm1)

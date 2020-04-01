@@ -1,13 +1,34 @@
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!
-!!!        FILE: BC-Lock-exchange.f90
-!!!      AUTHOR: ??
-!!!    MODIFIED: Paul Bartholomew
-!!! DESCRIPTION: This module describes the lock-exchange flow.
-!!!   CHANGELOG: [2019-06-28] Making module private by default
-!!               [2019-05-28] Turning file into a module
-!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!################################################################################
+!This file is part of Xcompact3d.
+!
+!Xcompact3d
+!Copyright (c) 2012 Eric Lamballais and Sylvain Laizet
+!eric.lamballais@univ-poitiers.fr / sylvain.laizet@gmail.com
+!
+!    Xcompact3d is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation.
+!
+!    Xcompact3d is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with the code.  If not, see <http://www.gnu.org/licenses/>.
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!    We kindly request that you cite Xcompact3d/Incompact3d in your
+!    publications and presentations. The following citations are suggested:
+!
+!    1-Laizet S. & Lamballais E., 2009, High-order compact schemes for
+!    incompressible flows: a simple and efficient method with the quasi-spectral
+!    accuracy, J. Comp. Phys.,  vol 228 (15), pp 5989-6015
+!
+!    2-Laizet S. & Li N., 2011, Incompact3d: a powerful tool to tackle turbulence
+!    problems with up to 0(10^5) computational cores, Int. J. of Numerical
+!    Methods in Fluids, vol 67 (11), pp 1735-1757
+!################################################################################
 
 module lockexch
 
@@ -246,94 +267,6 @@ contains
     return
   end subroutine init_lockexch
 
-  !   subroutine init_post(ep1)
-
-  !     USE MPI
-
-  !     real(mytype),intent(in),dimension(xstart(1):xend(1),xstart(2):xend(2),xstart(3):xend(3)) :: ep1
-  !     real(mytype) :: dxdydz, dxdz, x, xprobes, yprobes, zprobes
-  !     integer :: i,j,k,code
-  !     character :: a
-
-  ! #ifdef DEBG
-  !     if (nrank .eq. 0) print *,'# init_post start'
-  ! #endif
-
-  !     call alloc_x(vol1, opt_global=.true.)
-  !     vol1 = zero
-
-  !     !X PENCILS !Utilizar para integral volumétrica dentro do domínio físico (método de Simpson)
-  !     dxdydz=dx*dy*dz
-  !     do k=xstart(3),xend(3)
-  !        do j=xstart(2),xend(2)
-  !           do i=xstart(1),xend(1)
-  !              vol1(i,j,k)=dxdydz
-  !              if (i .eq. 1 .or. i .eq. nx) vol1(i,j,k) = vol1(i,j,k) * five/twelve
-  !              if (j .eq. 1 .or. j .eq. ny) vol1(i,j,k) = vol1(i,j,k) * five/twelve
-  !              if (k .eq. 1 .or. k .eq. nz) vol1(i,j,k) = vol1(i,j,k) * five/twelve
-  !              if (i .eq. 2 .or. i .eq. nx-1) vol1(i,j,k) = vol1(i,j,k) * thirteen/twelve
-  !              if (j .eq. 2 .or. j .eq. ny-1) vol1(i,j,k) = vol1(i,j,k) * thirteen/twelve
-  !              if (k .eq. 2 .or. k .eq. nz-1) vol1(i,j,k) = vol1(i,j,k) * thirteen/twelve
-  !           end do
-  !        end do
-  !     end do
-
-  !     !Y PENCILS
-  !     allocate(area2(ystart(1):yend(1),ystart(3):yend(3)))
-  !     dxdz=dx*dz
-  !     area2=zero
-  !     do k=ystart(3),yend(3)
-  !        do i=ystart(1),yend(1)
-  !           area2(i,k)=dxdz
-  !           if (i .eq. 1 .or. i .eq. nx) area2(i,k) = area2(i,k)/two
-  !           if (k .eq. 1 .or. k .eq. nz)  area2(i,k) = area2(i,k)/two
-  !        end do
-  !     end do
-
-  !     !probes
-  !     !WORK X-PENCILS
-  !     open(10,file='probes.prm',status='unknown',form='formatted')
-  !     read (10,*) nprobes
-  !     read (10,*) a
-  !     if (nprobes .gt. 0) then
-  !        allocate(nxprobes(nprobes), nyprobes(nprobes), nzprobes(nprobes), rankprobes(nprobes))
-  !        rankprobes(:)=0
-  !        do i=1, nprobes
-  !           read (10,*) xprobes, yprobes, zprobes
-  !           !x
-  !           if (nclx) then
-  !              nxprobes(i)=int(xprobes/dx)
-  !           else
-  !              nxprobes(i)=int(xprobes/dx+1)
-  !           end if
-  !           !y
-  !           if (ncly) then
-  !              nyprobes(i)=int(yprobes/dy)
-  !           else
-  !              nyprobes(i)=int(yprobes/dy+1)
-  !           end if
-  !           !z
-  !           if (nclz) then
-  !              nzprobes(i)=int(zprobes/dz)
-  !           else
-  !              nzprobes(i)=int(zprobes/dz+1)
-  !           end if
-  !           if       (xstart(1) .le. nxprobes(i) .and. nxprobes(i) .le. xend(1)) then
-  !              if    (xstart(2) .le. nyprobes(i) .and. nyprobes(i) .le. xend(2)) then
-  !                 if (xstart(3) .le. nzprobes(i) .and. nzprobes(i) .le. xend(3)) then
-  !                    rankprobes(i)=1
-  !                 endif
-  !              endif
-  !           endif
-  !        enddo
-  !     endif
-  !     close(10)
-
-  ! #ifdef DEBG 
-  !     if (nrank .eq. 0) print *,'# init_post ok'
-  ! #endif
-
-  !   end subroutine init_post
 
   subroutine postprocess_lockexch(rho1,ux1,uy1,uz1,phi1,ep1) !By Felipe Schuch
 

@@ -1,13 +1,34 @@
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!
-!!!        FILE: BC-TGV.f90
-!!!      AUTHOR: ??
-!!!    MODIFIED: Paul Bartholomew
-!!! DESCRIPTION: This module describes the Taylor-Green Vortex flow.
-!!!   CHANGELOG: [2019-02-19] Making module private by default
-!!               [2019-02-19] Turning file into a module
-!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!################################################################################
+!This file is part of Xcompact3d.
+!
+!Xcompact3d
+!Copyright (c) 2012 Eric Lamballais and Sylvain Laizet
+!eric.lamballais@univ-poitiers.fr / sylvain.laizet@gmail.com
+!
+!    Xcompact3d is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation.
+!
+!    Xcompact3d is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with the code.  If not, see <http://www.gnu.org/licenses/>.
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!    We kindly request that you cite Xcompact3d/Incompact3d in your
+!    publications and presentations. The following citations are suggested:
+!
+!    1-Laizet S. & Lamballais E., 2009, High-order compact schemes for
+!    incompressible flows: a simple and efficient method with the quasi-spectral
+!    accuracy, J. Comp. Phys.,  vol 228 (15), pp 5989-6015
+!
+!    2-Laizet S. & Li N., 2011, Incompact3d: a powerful tool to tackle turbulence
+!    problems with up to 0(10^5) computational cores, Int. J. of Numerical
+!    Methods in Fluids, vol 67 (11), pp 1735-1757
+!################################################################################
 
 module tgv
 
@@ -220,78 +241,11 @@ contains
        end do
     end do
 
-    !probes
-    !WORK X-PENCILS
-    open(10,file='probes.prm',status='unknown',form='formatted')
-    read (10,*) nprobes
-    read (10,*) a
-    if (nprobes .gt. 0) then
-       allocate(nxprobes(nprobes), nyprobes(nprobes), nzprobes(nprobes), rankprobes(nprobes))
-       rankprobes(:)=0
-       do i=1, nprobes
-          read (10,*) xprobes, yprobes, zprobes
-          !x
-          if (nclx) then
-             nxprobes(i)=int(xprobes/dx)
-          else
-             nxprobes(i)=int(xprobes/dx+1)
-          end if
-          !y
-          if (ncly) then
-             nyprobes(i)=int(yprobes/dy)
-          else
-             nyprobes(i)=int(yprobes/dy+1)
-          end if
-          !z
-          if (nclz) then
-             nzprobes(i)=int(zprobes/dz)
-          else
-             nzprobes(i)=int(zprobes/dz+1)
-          end if
-          if     (xstart(1) .le. nxprobes(i) .and. nxprobes(i) .le. xend(1)) then
-             if   (xstart(2) .le. nyprobes(i) .and. nyprobes(i) .le. xend(2)) then
-                if (xstart(3) .le. nzprobes(i) .and. nzprobes(i) .le. xend(3)) then
-                   rankprobes(i)=1
-                endif
-             endif
-          endif
-       enddo
-    endif
-    close(10)
-
 #ifdef DEBG
     if (nrank .eq. 0) print *,'# init_post ok'
 #endif
 
   end subroutine init_post
-  !############################################################################
-  subroutine write_probes(ux1,uy1,uz1,phi1) !By Felipe Schuch
-
-    real(mytype),intent(in),dimension(xstart(1):xend(1),xstart(2):xend(2),xstart(3):xend(3)) :: ux1, uy1, uz1
-    real(mytype),intent(in),dimension(xstart(1):xend(1),xstart(2):xend(2),xstart(3):xend(3),numscalar) :: phi1
-
-    integer :: i
-    character(len=30) :: filename
-    FS = 1+3+numscalar !Number of columns
-    write(fileformat, '( "(",I4,"(E14.6),A)" )' ) FS
-    FS = FS*14+1  !Line width
-
-    do i=1, nprobes
-       if (rankprobes(i) .eq. 1) then
-          write(filename,"('./probe',I4.4)") i
-          open(67,file=trim(filename),status='unknown',form='formatted'&
-               ,access='direct',recl=FS)
-          write(67,fileformat,rec=itime) t,&                         !1
-               ux1(nxprobes(i),nyprobes(i),nzprobes(i)),&            !2
-               uy1(nxprobes(i),nyprobes(i),nzprobes(i)),&            !3
-               uz1(nxprobes(i),nyprobes(i),nzprobes(i)),&            !4
-               phi1(nxprobes(i),nyprobes(i),nzprobes(i),:),&         !numscalar
-               NL                                                    !+1
-          close(67)
-       endif
-    enddo
-
-  end subroutine write_probes
   !############################################################################
   subroutine postprocess_tgv(ux1,uy1,uz1,phi1,ep1)
 
@@ -503,9 +457,11 @@ contains
     call MPI_ALLREDUCE(temp1,eps2,1,real_type,MPI_SUM,MPI_COMM_WORLD,code)
     eps2=eps2/(nxc*nyc*nzc)
 
+    if (itime.ne.0.) then
     if (nrank==0) then
        write(42,'(20e20.12)') (itime-1)*dt,eek,eps,enst,eps2
        call flush(42)
+    endif
     endif
 
   end subroutine postprocess_tgv

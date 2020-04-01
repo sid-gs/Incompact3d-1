@@ -52,7 +52,7 @@ subroutine parameter(input_i3d)
 
   USE lockexch, ONLY : pfront
 
-  USE forces, ONLY : nvol, xld, xrd, yld, yud
+  USE forces, ONLY : iforces, nvol, xld, xrd, yld, yud
 
   implicit none
 
@@ -76,8 +76,8 @@ subroutine parameter(input_i3d)
        scalar_lbound, scalar_ubound
   NAMELIST /LESModel/ jles, smagcst, walecst, maxdsmagcst, iwall
   NAMELIST /WallModel/ smagwalldamp
-  NAMELIST /Tripping/ A_tr,xs_tr_tbl,ys_tr_tbl,ts_tr_tbl,x0_tr_tbl
-  NAMELIST /ibmstuff/ cex,cey,ra,nobjmax,nraf,nvol
+  NAMELIST /Tripping/ itrip,A_tr,xs_tr_tbl,ys_tr_tbl,ts_tr_tbl,x0_tr_tbl
+  NAMELIST /ibmstuff/ cex,cey,ra,nobjmax,nraf,nvol,iforces
   NAMELIST /ForceCVs/ xld, xrd, yld, yud
   NAMELIST /LMN/ dens1, dens2, prandtl, ilmn_bound, ivarcoeff, ilmn_solve_temp, &
        massfrac, mol_weight, imultispecies, primary_species, &
@@ -114,6 +114,11 @@ subroutine parameter(input_i3d)
   read(10, nml=Statistics)
   if (iibm.ne.0) then
      read(10, nml=ibmstuff)
+  endif
+
+  if (iforces.eq.1) then
+     allocate(xld(nvol), xrd(nvol), yld(nvol), yud(nvol))
+     read(10, nml=ForceCVs)
   endif
 
   if (numscalar.ne.0) then
@@ -204,6 +209,8 @@ subroutine parameter(input_i3d)
   dy=yly/real(nym,mytype)
   dz=zlz/real(nzm,mytype)
 
+  if (nrank==0) call system('mkdir data out probes 2> /dev/null')
+
 #ifdef DEBG
   if (nrank .eq. 0) print *,'# parameter input.i3d done'
 #endif
@@ -270,7 +277,6 @@ subroutine parameter(input_i3d)
         write(*,"(' Prandtl number Re  : ',F15.8)") prandtl
      endif
      write(*,"(' Time step dt       : ',F15.8)") dt
-     write (*,"(' Spatial scheme     : ',F15.8)") fpi2
      if (ilesmod.ne.0) then
         print *,'                   : DNS'
      else
@@ -383,6 +389,8 @@ subroutine parameter_defaults()
   USE decomp_2d
   USE complex_geometry
 
+  USE forces, ONLY : iforces, nvol
+
   IMPLICIT NONE
 
   integer :: i
@@ -400,15 +408,17 @@ subroutine parameter_defaults()
   beta = 0
   iscalar = 0
   cont_phi = 0
+  filepath = './data/'
   irestart = 0
+  datapath = './data/'
   fpi2 = (48._mytype / seven) / (PI**2)
 
   !! IBM stuff
   nraf = 0
   nobjmax = 0
 
-  iforces = .FALSE.
-
+  nvol = 0
+  iforces = 0
   itrip = 0
   wrotation = zero
   irotation = 0
